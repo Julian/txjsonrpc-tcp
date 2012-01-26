@@ -27,7 +27,7 @@ class TestJSONRPC(unittest.TestCase):
 
     def assertSent(self, expected):
         expected["jsonrpc"] = "2.0"
-        self.assertEqual(json.loads(self.tr.value()), expected)
+        self.assertEqual(json.loads(self.tr.value()[2:]), expected)
 
     def test_notify(self):
         """
@@ -55,7 +55,7 @@ class TestJSONRPC(unittest.TestCase):
         d.addCallback(lambda r : self.assertEqual(r, [2, 3, "bar"]))
 
         receive = {"jsonrpc" : "2.0", "id" :  "1", "result" : [2, 3, "bar"]}
-        self.proto.dataReceived(json.dumps(receive))
+        self.proto.stringReceived(json.dumps(receive))
         return d
 
     def test_unhandled_error(self):
@@ -76,7 +76,7 @@ class TestJSONRPC(unittest.TestCase):
 
         """
 
-        self.proto.dataReceived("[1,2,")
+        self.proto.stringReceived("[1,2,")
 
         err = {"id" : None, "error" : jsonrpclib.ParseError().to_response()}
         self.assertSent(err)
@@ -90,7 +90,7 @@ class TestJSONRPC(unittest.TestCase):
 
         """
 
-        self.proto.dataReceived(json.dumps({"id" : 12}))
+        self.proto.stringReceived(json.dumps({"id" : 12}))
 
         err = jsonrpclib.InvalidRequest({"reason" : "jsonrpc"})
         self.assertSent({"id" : None, "error" : err.to_response()})
@@ -105,13 +105,13 @@ class TestJSONRPC(unittest.TestCase):
         """
 
         receive = {"jsonrpc" : "2.0", "id" :  "1", "result" : [2, 3, "bar"]}
-        self.proto.dataReceived(json.dumps(receive))
+        self.proto.stringReceived(json.dumps(receive))
 
         err = jsonrpclib.InternalError({
             "exception" : "KeyError", "message" : "u'1'",
         })
         expect = {"jsonrpc" : "2.0", "id" : None, "error" : err.to_response()}
-        sent = json.loads(self.tr.value())
+        sent = json.loads(self.tr.value()[2:])
         tb = sent["error"]["data"].pop("traceback")
 
         self.assertEqual(sent, expect)
@@ -128,7 +128,7 @@ class TestJSONRPC(unittest.TestCase):
 
         receive = {"jsonrpc" : "2.0", "id" : "1", "error" : {}}
         receive["error"] = {"code" : err.code, "message" : err.message}
-        self.proto.dataReceived(json.dumps(receive))
+        self.proto.stringReceived(json.dumps(receive))
         return d
 
     def test_parse_error(self):
@@ -154,25 +154,25 @@ class TestJSONRPC(unittest.TestCase):
 
     def test_received_notify(self):
         receive = {"jsonrpc" : "2.0", "method" : "foo"}
-        self.proto.dataReceived(json.dumps(receive))
+        self.proto.stringReceived(json.dumps(receive))
         self.assertTrue(self.foo_fired)
 
         receive = {"jsonrpc" : "2.0", "method" : "bar", "params" : [2]}
-        self.proto.dataReceived(json.dumps(receive))
+        self.proto.stringReceived(json.dumps(receive))
         self.assertEqual(self.bar_result, 4)
 
     def test_received_notify_no_method(self):
         receive = {"jsonrpc" : "2.0", "method" : "quux"}
-        self.proto.dataReceived(json.dumps(receive))
+        self.proto.stringReceived(json.dumps(receive))
         errors = self.flushLoggedErrors(jsonrpclib.MethodNotFound)
         self.assertEqual(len(errors), 1)
 
     def test_received_notify_wrong_param_type(self):
         receive = {"jsonrpc" : "2.0", "method" : "foo", "params" : [1, 2]}
-        self.proto.dataReceived(json.dumps(receive))
+        self.proto.stringReceived(json.dumps(receive))
 
         receive = {"jsonrpc" : "2.0", "method" : "bar", "params" : "foo"}
-        self.proto.dataReceived(json.dumps(receive))
+        self.proto.stringReceived(json.dumps(receive))
 
         errors = self.flushLoggedErrors(TypeError)
         self.assertEqual(len(errors), 2)
@@ -182,7 +182,7 @@ class TestJSONRPC(unittest.TestCase):
             "jsonrpc" : "2.0", "id" : "1", "method" : "baz", "params" : [1, 2]
         }
 
-        self.proto.dataReceived(json.dumps(receive))
+        self.proto.stringReceived(json.dumps(receive))
         self.assertSent({"jsonrpc" : "2.0", "id" : "1", "result" : [2, 1]})
 
     def test_received_request_deferred(self):
@@ -191,17 +191,17 @@ class TestJSONRPC(unittest.TestCase):
             "method" : "late", "params" : {"p" : 3}
         }
 
-        self.proto.dataReceived(json.dumps(receive))
+        self.proto.stringReceived(json.dumps(receive))
         self.deferred.callback(27)
         self.assertSent({"jsonrpc" : "2.0", "id" : "3", "result" : 27})
 
     def test_received_request_no_method(self):
         receive = {"jsonrpc" : "2.0", "id" : "3", "method" : "quux"}
-        self.proto.dataReceived(json.dumps(receive))
+        self.proto.stringReceived(json.dumps(receive))
         errors = self.flushLoggedErrors(jsonrpclib.MethodNotFound)
         self.assertEqual(len(errors), 1)
 
-        sent = json.loads(self.tr.value())
+        sent = json.loads(self.tr.value()[2:])
         self.assertIn("error", sent)
         self.assertEqual(sent["error"]["code"], jsonrpclib.MethodNotFound.code)
 
@@ -209,9 +209,9 @@ class TestJSONRPC(unittest.TestCase):
         receive = {
             "jsonrpc" : "2.0", "id" : "1", "method" : "foo", "params" : [1, 2]
         }
-        self.proto.dataReceived(json.dumps(receive))
+        self.proto.stringReceived(json.dumps(receive))
 
-        response = json.loads(self.tr.value())
+        response = json.loads(self.tr.value()[2:])
 
         self.assertNotIn("result", response)
         self.assertEqual(response["id"], "1")

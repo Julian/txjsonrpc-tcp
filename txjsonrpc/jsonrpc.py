@@ -8,12 +8,13 @@ All of the implementations I found were either resource-based or really ugly.
 import itertools
 
 from twisted.internet import defer, error, protocol
+from twisted.protocols import basic
 from twisted.python import failure, log
 
 from txjsonrpc import jsonrpclib
 
 
-class JSONRPC(protocol.Protocol):
+class JSONRPC(basic.Int16StringReceiver):
 
     _fail_all_reason = None
     transport = None
@@ -39,9 +40,9 @@ class JSONRPC(protocol.Protocol):
         self.fail_all(reason)
 
 
-    def dataReceived(self, data):
+    def stringReceived(self, string):
         try:
-            received = jsonrpclib.loads(data)
+            received = jsonrpclib.loads(string)
         except jsonrpclib.ParseError:
             return self.unhandled_error(failure.Failure())
 
@@ -60,6 +61,8 @@ class JSONRPC(protocol.Protocol):
 
         try:
             res = jsonrpclib.received_result(result)
+        except KeyboardInterrupt:
+            raise
         except:
             d.errback(failure.Failure())
         else:
@@ -68,6 +71,8 @@ class JSONRPC(protocol.Protocol):
     def _received_request(self, request):
         try:
             req = jsonrpclib.received_request(request, self.exposed)
+        except KeyboardInterrupt:
+            raise
         except:
             return self.unhandled_error(failure.Failure())
 
@@ -79,15 +84,16 @@ class JSONRPC(protocol.Protocol):
         if id is not None:
             d.addCallback(lambda res : jsonrpclib.response(id, res))
 
+        # we want invalid notifications to cause errors too, so no addCallbacks
         d.addErrback(self.unhandled_error, id=id)
 
         if id is not None:
-            d.addCallback(self._send)
+            d.addCallback(self.sendString)
 
-    def _send(self, obj):
+    def sendString(self, string):
         if self.transport is None:
             raise error.ConnectionLost()
-        self.transport.write(obj)
+        basic.Int16StringReceiver.sendString(self, string)
 
     def fail_all(self, reason):
         self._fail_all_reason = reason
@@ -105,7 +111,7 @@ class JSONRPC(protocol.Protocol):
         )
 
         if self.transport is not None:
-            self._send(jsonrpclib.error(id, failure))
+            self.sendString(jsonrpclib.error(id, failure))
             self.transport.loseConnection()
 
     def _build_outgoing(self, method, parameters, notification=False):
@@ -118,7 +124,7 @@ class JSONRPC(protocol.Protocol):
             id = str(next(self._counter))
             to_send = jsonrpclib.request(id, method, parameters)
 
-        self._send(to_send)
+        self.sendString(to_send)
 
         if not notification:
             return self._requests.setdefault(id, defer.Deferred())
