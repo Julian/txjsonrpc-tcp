@@ -20,7 +20,7 @@ class TestJSONRPC(unittest.TestCase):
             "late" : lambda p : self.deferred,
         }
 
-        self.factory = jsonrpc.JSONRPCFactory(exposed)
+        self.factory = jsonrpc.JSONRPCFactory(exposed.get)
         self.proto = self.factory.buildProtocol(("127.0.0.1", 0))
         self.tr = proto_helpers.StringTransportWithDisconnection()
         self.proto.makeConnection(self.tr)

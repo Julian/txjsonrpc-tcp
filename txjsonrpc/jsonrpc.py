@@ -70,16 +70,14 @@ class JSONRPC(basic.Int16StringReceiver):
 
     def _received_request(self, request):
         try:
-            req = jsonrpclib.received_request(request, self.exposed)
+            req = jsonrpclib.received_request(request, self.lookup_method)
         except KeyboardInterrupt:
             raise
         except:
             return self.unhandled_error(failure.Failure())
 
         id = request.get("id")
-        d = defer.maybeDeferred(
-            self.exposed[req["method"]], *req["args"], **req["kwargs"]
-        )
+        d = defer.maybeDeferred(req["method"], *req["args"], **req["kwargs"])
 
         if id is not None:
             d.addCallback(lambda res : jsonrpclib.response(id, res))
@@ -143,10 +141,10 @@ class JSONRPC(basic.Int16StringReceiver):
 class JSONRPCFactory(protocol.Factory):
     protocol = JSONRPC
 
-    def __init__(self, exposed=()):
-        self.exposed = dict(exposed)
+    def __init__(self, lookup_method=lambda name : None):
+        self.lookup_method = lookup_method
 
     def buildProtocol(self, addr):
         proto = protocol.Factory.buildProtocol(self, addr)
-        proto.exposed = self.exposed
+        proto.lookup_method = self.lookup_method
         return proto

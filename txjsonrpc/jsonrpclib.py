@@ -132,17 +132,21 @@ def received_result(recv):
     return recv
 
 
-def received_request(recv, methods):
+def received_request(recv, lookup_method):
     if "jsonrpc" not in recv:
         raise InvalidRequest({"reason" : "jsonrpc"})
     elif "method" not in recv:
         raise InvalidRequest({"reason" : "method"})
 
-    method = recv["method"]
+    method_name = recv["method"]
     params = recv.get("params", [])
 
-    if method not in methods:
-        raise MethodNotFound({"method" : method})
+    method = lookup_method(method_name)
+    if method is None:
+        raise MethodNotFound({"method" : method_name})
+    else:
+        recv["method"] = method
+        recv["method_name"] = method_name
 
     try:
         params.keys

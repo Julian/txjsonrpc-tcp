@@ -47,29 +47,31 @@ class TestJSONRPCLib(unittest.TestCase):
     def test_received_request(self):
         r = {"jsonrpc" : "2.0", "id" : "1", "method": "foo"}
         self.assertEqual(
-            j.received_request(r, {"foo" : next}),
-            {"jsonrpc" : "2.0", "id" : "1", "method" : "foo",
-             "args" : [], "kwargs" : {}},
+            j.received_request(r, {"foo" : next}.get),
+            {"jsonrpc" : "2.0", "id" : "1", "method_name" : "foo",
+             "method" : next, "args" : [], "kwargs" : {}},
         )
 
         r = {"jsonrpc" : "2.0", "id" : "2", "method": "bar", "params" : [1, 2]}
         self.assertEqual(
-            j.received_request(r, {"bar" : next}),
-            {"jsonrpc" : "2.0", "id" : "2", "method" : "bar",
-             "params" : [1, 2], "args" : [1, 2], "kwargs" : {}},
+            j.received_request(r, {"bar" : next}.get),
+            {"jsonrpc" : "2.0", "id" : "2", "method_name" : "bar",
+             "method" : next, "params" : [1, 2],
+             "args" : [1, 2], "kwargs" : {}},
         )
 
         r = {"jsonrpc" : "2.0", "id" : "3",
              "method": "quux", "params" : {"foo" : 2}}
         self.assertEqual(
-            j.received_request(r, {"quux" : next}),
-            {"jsonrpc" : "2.0", "id" : "3", "method" : "quux",
-             "params" : {"foo" : 2}, "args" : [], "kwargs" : {"foo" : 2}},
+            j.received_request(r, {"quux" : next}.get),
+            {"jsonrpc" : "2.0", "id" : "3", "method_name" : "quux",
+             "method" : next, "params" : {"foo" : 2},
+             "args" : [], "kwargs" : {"foo" : 2}},
         )
 
         with self.assertRaises(j.InvalidParams):
             r = {"jsonrpc" : "2.0", "id" : "4", "method": "qu", "params" : 2}
-            j.received_request(r, {"qu" : next})
+            j.received_request(r, {"qu" : next}.get)
 
     def test_received_response(self):
         r = {"jsonrpc" : "2.0", "id" : "1", "result": [1, 2, 3]}
