@@ -25,7 +25,7 @@ classifiers = [
 
 
 setup(
-    name="txjsonrpc-tcp",
+    name="txjsonrpc",
     version=__version__,
     packages=["txjsonrpc"],
     author="Julian Berman",
