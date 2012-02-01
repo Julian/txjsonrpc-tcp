@@ -11,7 +11,7 @@ class TestJSONRPCLib(unittest.TestCase):
         self.assertEqual(
             json.loads(j.error(1, failure.Failure(j.ParseError()))),
             {"jsonrpc" : "2.0", "id" : 1,
-             "error" : j.ParseError().to_response()}
+             "error" : j.ParseError().toResponse()}
         )
 
     def test_notify(self):
@@ -47,15 +47,15 @@ class TestJSONRPCLib(unittest.TestCase):
     def test_received_request(self):
         r = {"jsonrpc" : "2.0", "id" : "1", "method": "foo"}
         self.assertEqual(
-            j.received_request(r, {"foo" : next}.get),
-            {"jsonrpc" : "2.0", "id" : "1", "method_name" : "foo",
+            j.receivedRequest(r, {"foo" : next}.get),
+            {"jsonrpc" : "2.0", "id" : "1", "methodName" : "foo",
              "method" : next, "args" : [], "kwargs" : {}},
         )
 
         r = {"jsonrpc" : "2.0", "id" : "2", "method": "bar", "params" : [1, 2]}
         self.assertEqual(
-            j.received_request(r, {"bar" : next}.get),
-            {"jsonrpc" : "2.0", "id" : "2", "method_name" : "bar",
+            j.receivedRequest(r, {"bar" : next}.get),
+            {"jsonrpc" : "2.0", "id" : "2", "methodName" : "bar",
              "method" : next, "params" : [1, 2],
              "args" : [1, 2], "kwargs" : {}},
         )
@@ -63,19 +63,19 @@ class TestJSONRPCLib(unittest.TestCase):
         r = {"jsonrpc" : "2.0", "id" : "3",
              "method": "quux", "params" : {"foo" : 2}}
         self.assertEqual(
-            j.received_request(r, {"quux" : next}.get),
-            {"jsonrpc" : "2.0", "id" : "3", "method_name" : "quux",
+            j.receivedRequest(r, {"quux" : next}.get),
+            {"jsonrpc" : "2.0", "id" : "3", "methodName" : "quux",
              "method" : next, "params" : {"foo" : 2},
              "args" : [], "kwargs" : {"foo" : 2}},
         )
 
         with self.assertRaises(j.InvalidParams):
             r = {"jsonrpc" : "2.0", "id" : "4", "method": "qu", "params" : 2}
-            j.received_request(r, {"qu" : next}.get)
+            j.receivedRequest(r, {"qu" : next}.get)
 
     def test_received_response(self):
         r = {"jsonrpc" : "2.0", "id" : "1", "result": [1, 2, 3]}
-        self.assertEqual(j.received_result(r), r)
+        self.assertEqual(j.receivedResult(r), r)
 
     def test_received_result_invalid_properties(self):
         for invalid in [
@@ -91,33 +91,33 @@ class TestJSONRPCLib(unittest.TestCase):
             {"jsonrpc" : "other", "result" : [], "error" : {}, "id" : "1"},
         ]:
             with self.assertRaises(j.InvalidRequest):
-                j.received_result(json.dumps(invalid))
+                j.receivedResult(json.dumps(invalid))
 
     def test_received_error(self):
         r = {"jsonrpc" : "2.0", "id" : "1"}
 
         for err in j.PROTOCOL_ERRORS.itervalues():
-            r["error"] = err().to_response()
+            r["error"] = err().toResponse()
 
             with self.assertRaises(err):
-                j.received_result(r)
+                j.receivedResult(r)
 
         # ServerError
-        r["error"] = j.ServerError(code=-32007).to_response()
+        r["error"] = j.ServerError(code=-32007).toResponse()
         with self.assertRaises(j.ServerError) as err:
-            j.received_result(r)
+            j.receivedResult(r)
 
         o = {"bar" : 2, "quux" : 4}
         r["error"] = {"code" : "-32098", "message" : "Server err", "data" : o}
         with self.assertRaises(j.ServerError) as err:
-            j.received_result(r)
+            j.receivedResult(r)
 
         self.assertEqual(err.exception.data, o)
 
         o = {"quux" : 4}
         r["error"] = {"code" : "-29", "message" : "Foo blew up", "data" : o}
         with self.assertRaises(j.ApplicationError) as err:
-            j.received_result(r)
+            j.receivedResult(r)
 
         self.assertEqual(err.exception.data, o)
         self.assertEqual(err.exception.message, "Foo blew up")
@@ -141,4 +141,4 @@ class TestJSONRPCLib(unittest.TestCase):
 
             with self.assertRaises(j.InvalidResponse):
                 r["error"] = invalid
-                j.received_result(r)
+                j.receivedResult(r)

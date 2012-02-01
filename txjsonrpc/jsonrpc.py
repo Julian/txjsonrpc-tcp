@@ -16,7 +16,7 @@ from txjsonrpc import jsonrpclib
 
 class JSONRPC(basic.Int16StringReceiver):
 
-    _fail_all_reason = None
+    _failAllReason = None
     transport = None
 
     def __init__(self):
@@ -26,41 +26,41 @@ class JSONRPC(basic.Int16StringReceiver):
     def connectionMade(self):
         self.transport.protocol = self
         host, peer = self.transport.getHost(), self.transport.getPeer()
-        log.msg("{} connection established (HOST: {}, PEER: {})".format(
-            self.__class__.__name__, host, peer
+        log.msg("JSON RPC connection established (HOST: {}, PEER: {})".format(
+            host, peer
         ))
 
     def connectionLost(self, reason):
         host, peer = self.transport.getHost(), self.transport.getPeer()
-        log.msg("{} connection lost (HOST: {}, PEER: {})".format(
-            self.__class__.__name__, host, peer
-        ))
+        log.msg(
+            "JSON RPC connection lost (HOST: {}, PEER: {})".format(host, peer)
+        )
 
         self.transport = None
-        self.fail_all(reason)
+        self.failAll(reason)
 
 
     def stringReceived(self, string):
         try:
             received = jsonrpclib.loads(string)
         except jsonrpclib.ParseError:
-            return self.unhandled_error(failure.Failure())
+            return self.unhandledError(failure.Failure())
 
         if "result" in received or "error" in received:
-            return self._received_result(received)
+            return self._receivedResult(received)
         else:
-            return self._received_request(received)
+            return self._receivedRequest(received)
 
-    def _received_result(self, result):
+    def _receivedResult(self, result):
         id = result.get("id")
 
         try:
-            d = self._requests.pop(id).addErrback(self.unhandled_error, id=id)
+            d = self._requests.pop(id).addErrback(self.unhandledError, id=id)
         except KeyError:
-            return self.unhandled_error(failure.Failure())
+            return self.unhandledError(failure.Failure())
 
         try:
-            res = jsonrpclib.received_result(result)
+            res = jsonrpclib.receivedResult(result)
         except KeyboardInterrupt:
             raise
         except:
@@ -68,13 +68,13 @@ class JSONRPC(basic.Int16StringReceiver):
         else:
             d.callback(res["result"])
 
-    def _received_request(self, request):
+    def _receivedRequest(self, request):
         try:
-            req = jsonrpclib.received_request(request, self.lookup_method)
+            req = jsonrpclib.receivedRequest(request, self.lookupMethod)
         except KeyboardInterrupt:
             raise
         except:
-            return self.unhandled_error(failure.Failure())
+            return self.unhandledError(failure.Failure())
 
         id = request.get("id")
         d = defer.maybeDeferred(req["method"], *req["args"], **req["kwargs"])
@@ -83,7 +83,7 @@ class JSONRPC(basic.Int16StringReceiver):
             d.addCallback(lambda res : jsonrpclib.response(id, res))
 
         # we want invalid notifications to cause errors too, so no addCallbacks
-        d.addErrback(self.unhandled_error, id=id)
+        d.addErrback(self.unhandledError, id=id)
 
         if id is not None:
             d.addCallback(self.sendString)
@@ -93,14 +93,14 @@ class JSONRPC(basic.Int16StringReceiver):
             raise error.ConnectionLost()
         basic.Int16StringReceiver.sendString(self, string)
 
-    def fail_all(self, reason):
-        self._fail_all_reason = reason
+    def failAll(self, reason):
+        self._failAllReason = reason
         requests, self._requests = self._requests, None
 
         for request in requests.itervalues():
             request.errback(reason)
 
-    def unhandled_error(self, failure, id=None):
+    def unhandledError(self, failure, id=None):
         log.err(
             failure,
             "An error went unhandled by the client application. "
@@ -112,28 +112,28 @@ class JSONRPC(basic.Int16StringReceiver):
             self.sendString(jsonrpclib.error(id, failure))
             self.transport.loseConnection()
 
-    def _build_outgoing(self, method, parameters, notification=False):
-        if self._fail_all_reason is not None:
-            return defer.fail(self._fail_all_reason)
+    def _buildOutgoing(self, method, parameters, notification=False):
+        if self._failAllReason is not None:
+            return defer.fail(self._failAllReason)
 
         if notification:
-            to_send = jsonrpclib.notify(method, parameters)
+            toSend = jsonrpclib.notify(method, parameters)
         else:
             id = str(next(self._counter))
-            to_send = jsonrpclib.request(id, method, parameters)
+            toSend = jsonrpclib.request(id, method, parameters)
 
-        self.sendString(to_send)
+        self.sendString(toSend)
 
         if not notification:
             return self._requests.setdefault(id, defer.Deferred())
 
     def notify(self, method, parameters=()):
-        return self._build_outgoing(
+        return self._buildOutgoing(
             method=method, parameters=parameters, notification=True,
         )
 
     def request(self, method, parameters=()):
-        return self._build_outgoing(
+        return self._buildOutgoing(
             method=method, parameters=parameters, notification=False,
         )
 
@@ -141,10 +141,10 @@ class JSONRPC(basic.Int16StringReceiver):
 class JSONRPCFactory(protocol.Factory):
     protocol = JSONRPC
 
-    def __init__(self, lookup_method=lambda name : None):
-        self.lookup_method = lookup_method
+    def __init__(self, lookupMethod=lambda name : None):
+        self.lookupMethod = lookupMethod
 
     def buildProtocol(self, addr):
         proto = protocol.Factory.buildProtocol(self, addr)
-        proto.lookup_method = self.lookup_method
+        proto.lookupMethod = self.lookupMethod
         return proto

@@ -9,7 +9,7 @@ class JSONRPCError(Exception):
     def __str__(self):
         return self.message
 
-    def to_response(self):
+    def toResponse(self):
         return {
             "code" : self.code, "message" : self.message, "data" : self.data
         }
@@ -68,13 +68,13 @@ PROTOCOL_ERRORS = {error.code : error for error in _e}
 
 
 def error(id, failure):
-    tr = getattr(failure.value, "to_response", None)
+    tr = getattr(failure.value, "toResponse", None)
     if tr is None:
         tr = InternalError({
             "message" : failure.getErrorMessage(),
             "exception" : failure.type.__name__,
             "traceback" : failure.getTraceback(),
-        }).to_response
+        }).toResponse
     return json.dumps({"jsonrpc" : "2.0", "id" : id, "error" : tr()})
 
 
@@ -99,7 +99,7 @@ def loads(data):
         raise ParseError()
 
 
-def received_result(recv):
+def receivedResult(recv):
     if "jsonrpc" not in recv:
         raise InvalidRequest({"reason" : "jsonrpc"})
     elif "id" not in recv:
@@ -132,21 +132,21 @@ def received_result(recv):
     return recv
 
 
-def received_request(recv, lookup_method):
+def receivedRequest(recv, lookupMethod):
     if "jsonrpc" not in recv:
         raise InvalidRequest({"reason" : "jsonrpc"})
     elif "method" not in recv:
         raise InvalidRequest({"reason" : "method"})
 
-    method_name = recv["method"]
+    methodName = recv["method"]
     params = recv.get("params", [])
 
-    method = lookup_method(method_name)
+    method = lookupMethod(methodName)
     if method is None:
-        raise MethodNotFound({"method" : method_name})
+        raise MethodNotFound({"method" : methodName})
     else:
         recv["method"] = method
-        recv["method_name"] = method_name
+        recv["methodName"] = methodName
 
     try:
         params.keys
